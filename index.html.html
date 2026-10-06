@@ -1,0 +1,2118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Urban Quest</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  
+  <style>
+    :root {
+      --bg: #0b1220;
+      --bg2: #111827;
+      --card: rgba(30, 41, 59, 0.92);
+      --card-solid: #1e293b;
+      --primary: #6366f1;
+      --primary2: #818cf8;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+      --success: #10b981;
+      --danger: #f43f5e;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: rgba(148, 163, 184, 0.18);
+      --radius: 16px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(99,102,241,0.25), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(14,165,233,0.12), transparent),
+        radial-gradient(ellipse 50% 30% at 50% 100%, rgba(16,185,129,0.08), transparent);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .screen { display: none; min-height: 100vh; flex-direction: column; }
+    .screen.active { display: flex; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .header {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff, #c7d2fe);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header .user {
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: rgba(99,102,241,0.15);
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(99,102,241,0.25);
+    }
+    .content { flex: 1; padding: 20px; overflow-y: auto; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 22px; border: none; border-radius: 14px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      width: 100%; letter-spacing: 0.01em;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white;
+      box-shadow: 0 4px 20px var(--primary-glow);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 28px var(--primary-glow); }
+    .btn-success {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+    }
+    .btn-outline {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:active { background: rgba(255,255,255,0.08); }
+    .btn-sm { padding: 10px 14px; font-size: 0.85rem; width: auto; border-radius: 12px; }
+
+    input {
+      width: 100%; padding: 14px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      border-color: var(--primary2);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    input::placeholder { color: #64748b; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card:active { transform: scale(0.99); }
+    .card h3 { margin-bottom: 6px; font-size: 1.05rem; font-weight: 650; }
+    .card p { color: var(--muted); font-size: 0.88rem; line-height: 1.45; }
+
+    .error {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      padding: 12px 14px; border-radius: 12px;
+      margin-bottom: 14px; font-size: 0.9rem;
+    }
+    .success-msg {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 12px 14px; border-radius: 12px;
+      margin-bottom: 14px; font-size: 0.9rem;
+    }
+
+    .logo {
+      font-size: 3rem; text-align: center; margin-bottom: 4px;
+      filter: drop-shadow(0 4px 20px rgba(99,102,241,0.4));
+    }
+    .subtitle { text-align: center; color: var(--muted); margin-bottom: 20px; font-size: 0.95rem; }
+    .demo-note {
+      background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(14,165,233,0.1));
+      color: #a5b4fc;
+      border: 1px solid rgba(99,102,241,0.25);
+      padding: 10px 14px; border-radius: 12px;
+      font-size: 0.8rem; margin-bottom: 18px; text-align: center;
+    }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; background: rgba(0,0,0,0.25); padding: 4px; border-radius: 14px; }
+    .tab {
+      flex: 1; padding: 12px; text-align: center; border-radius: 11px;
+      color: var(--muted); font-weight: 600; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white;
+      box-shadow: 0 2px 12px var(--primary-glow);
+    }
+
+    .player-list { list-style: none; }
+    .player-list li {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .player-list li:last-child { border-bottom: none; }
+    .badge {
+      font-size: 0.72rem; padding: 4px 10px; border-radius: 999px;
+      background: rgba(148,163,184,0.15); color: var(--muted);
+      font-weight: 600;
+    }
+    .badge.ready { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+    .badge.host { background: rgba(99,102,241,0.25); color: #c7d2fe; }
+
+    #map {
+      height: 40vh; width: 100%; border-radius: 18px; margin-bottom: 16px; z-index: 1;
+      border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden;
+    }
+
+    .task-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .task-card:active { transform: scale(0.985); }
+    .task-card.completed {
+      border-left-color: var(--success);
+      opacity: 0.75;
+      background: rgba(16,185,129,0.06);
+    }
+    .task-card.locked {
+      border-left-color: #475569;
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .task-card h4 { margin-bottom: 6px; font-size: 0.98rem; }
+    .task-meta {
+      display: flex; gap: 10px; font-size: 0.78rem; color: var(--muted); margin-top: 8px;
+    }
+    .task-meta span {
+      background: rgba(255,255,255,0.05);
+      padding: 3px 8px; border-radius: 8px;
+    }
+
+    .timer {
+      font-size: 1.75rem; font-weight: 800; text-align: center;
+      padding: 14px;
+      background: linear-gradient(135deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
+      border-radius: 16px; margin-bottom: 14px;
+      border: 1px solid var(--border);
+      letter-spacing: 0.06em;
+      font-variant-numeric: tabular-nums;
+      box-shadow: var(--shadow);
+    }
+    .timer.warning { color: var(--warning); text-shadow: 0 0 20px rgba(245,158,11,0.4); }
+    .timer.danger { color: var(--danger); text-shadow: 0 0 20px rgba(244,63,94,0.4); animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: 0.75; } }
+
+    .bottom-nav {
+      display: flex;
+      background: rgba(17, 24, 39, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      position: sticky; bottom: 0; z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .nav-item {
+      flex: 1; padding: 10px 8px; text-align: center;
+      font-size: 0.7rem; color: var(--muted); cursor: pointer;
+      transition: color 0.2s;
+    }
+    .nav-item.active { color: var(--primary2); }
+    .nav-item span { display: block; font-size: 1.35rem; margin-bottom: 2px; }
+
+    .modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 2000;
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    .modal.active { display: flex; animation: fadeIn 0.2s ease; }
+    .modal-content {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      width: 100%; max-width: 500px;
+      border-radius: 24px 24px 0 0;
+      padding: 20px 22px 28px;
+      max-height: 88vh; overflow-y: auto;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.4);
+      position: relative; z-index: 2001;
+      pointer-events: auto !important;
+    }
+    .modal-content input, .modal-content button {
+      pointer-events: auto !important; position: relative; z-index: 2002;
+    }
+    .modal-handle {
+      width: 40px; height: 4px;
+      background: rgba(148,163,184,0.4);
+      border-radius: 2px; margin: 0 auto 18px;
+    }
+    .modal-content h2 { font-size: 1.2rem; margin-bottom: 4px; }
+
+    .score-board { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .score-item {
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.2);
+      padding: 8px 12px; border-radius: 10px; font-size: 0.85rem;
+    }
+    .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+    .code-display {
+      font-size: 2rem; font-weight: 800; letter-spacing: 6px; text-align: center;
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(14,165,233,0.1));
+      padding: 18px; border-radius: 16px; margin: 14px 0;
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #c7d2fe;
+    }
+
+    .sudoku-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 56px);
+      gap: 0; margin: 16px auto;
+      border: 3px solid #e2e8f0;
+      width: fit-content;
+      background: #0f172a;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+    .sudoku-cell {
+      width: 56px; height: 56px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 700;
+      border: 1px solid #334155;
+      color: #f1f5f9; background: #1e293b;
+    }
+    .sudoku-cell.given { background: #312e81; color: #c7d2fe; }
+    .sudoku-cell.empty { color: #475569; }
+    .sudoku-cell:nth-child(2), .sudoku-cell:nth-child(6),
+    .sudoku-cell:nth-child(10), .sudoku-cell:nth-child(14) { border-right: 3px solid #e2e8f0; }
+    .sudoku-cell:nth-child(n+5):nth-child(-n+8) { border-bottom: 3px solid #e2e8f0; }
+
+    #qr-reader { max-height: 220px; overflow: hidden; position: relative; z-index: 1; border-radius: 12px; }
+  
+    .tab { min-height: 48px; display: flex; align-items: center; justify-content: center; }
+    #btn-do-register, #btn-do-login { min-height: 52px; font-size: 1.05rem; }
+    #register-box input, #login-box input { font-size: 16px; } /* prevent iOS zoom */
+
+  </style>
+</head>
+<body>
+  <div id="auth-screen" class="screen active">
+    <div class="content" style="display:flex;flex-direction:column;justify-content:center;max-width:400px;margin:0 auto;width:100%;">
+      <div class="logo">🗺️</div>
+      <h1 style="text-align:center;margin-bottom:4px;font-size:1.75rem;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(135deg,#fff,#a5b4fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Urban Quest</h1>
+      <p class="subtitle">Городские квесты с друзьями</p>
+      <div class="demo-note">Для общих результатов команд вставь URL с Render в var API_URL в коде файла.</div>
+      
+      <div class="tabs">
+        <div class="tab active" id="tab-login" data-tab="login" onclick="window.showLogin && window.showLogin()">Вход</div>
+        <div class="tab" id="tab-register" data-tab="register" onclick="window.showRegister && window.showRegister()">Регистрация</div>
+      </div>
+      
+      <div id="auth-error" class="error" style="display:none;"></div>
+      
+      <div id="login-box">
+        <input type="text" id="login-username" placeholder="Логин" autocomplete="username">
+        <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password">
+        <button type="button" class="btn btn-primary" id="btn-do-login" onclick="window.doLogin && window.doLogin()">Войти</button>
+      </div>
+      
+      <div id="register-box" style="display:none;">
+        <input type="text" id="reg-username" placeholder="Логин (от 3 символов)" autocomplete="username">
+        <input type="password" id="reg-password" placeholder="Пароль (от 4 символов)" autocomplete="new-password">
+        <button type="button" class="btn btn-primary" id="btn-do-register" onclick="window.doRegister && window.doRegister()">Зарегистрироваться</button>
+        <p style="color:var(--muted);font-size:0.8rem;margin-top:10px;text-align:center;">Логин от 3 символов, пароль от 4</p>
+      </div>
+    </div>
+  </div>
+
+  
+  <script id="early-auth-script">
+  (function() {
+    function $(id) { return document.getElementById(id); }
+    function showErr(msg) {
+      var el = $("auth-error");
+      if (!el) { alert(msg); return; }
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+    function goRegister() {
+      var loginBox = $("login-box");
+      var regBox = $("register-box");
+      var tabL = $("tab-login");
+      var tabR = $("tab-register");
+      if (loginBox) loginBox.style.display = "none";
+      if (regBox) regBox.style.display = "block";
+      if (tabL) tabL.classList.remove("active");
+      if (tabR) tabR.classList.add("active");
+      var err = $("auth-error");
+      if (err) err.style.display = "none";
+    }
+    function goLogin() {
+      var loginBox = $("login-box");
+      var regBox = $("register-box");
+      var tabL = $("tab-login");
+      var tabR = $("tab-register");
+      if (loginBox) loginBox.style.display = "block";
+      if (regBox) regBox.style.display = "none";
+      if (tabL) tabL.classList.add("active");
+      if (tabR) tabR.classList.remove("active");
+      var err = $("auth-error");
+      if (err) err.style.display = "none";
+    }
+    function doReg() {
+      try {
+        var username = ($("reg-username") || {}).value || "";
+        var password = ($("reg-password") || {}).value || "";
+        username = String(username).trim();
+        if (username.length < 3) { showErr("Логин от 3 символов"); return; }
+        if (String(password).length < 4) { showErr("Пароль от 4 символов"); return; }
+        var users = [];
+        try { users = JSON.parse(localStorage.getItem("uq_users") || "[]"); } catch(e) { users = []; }
+        for (var i = 0; i < users.length; i++) {
+          if (users[i].username && users[i].username.toLowerCase() === username.toLowerCase()) {
+            showErr("Такой пользователь уже есть. Нажмите «Вход».");
+            return;
+          }
+        }
+        var id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        users.push({ id: id, username: username, password: password });
+        localStorage.setItem("uq_users", JSON.stringify(users));
+        localStorage.setItem("uq_session", JSON.stringify({ id: id, username: username }));
+        try { localStorage.setItem("uq_saved_login", JSON.stringify({ username: username, password: password })); } catch(e) {}
+        if (window.doRegister && window.apiEnabled && window.apiEnabled()) {
+          window.doRegister();
+          return;
+        }
+        if (typeof initApp === "function") {
+          window.user = { id: id, username: username };
+          initApp();
+        } else {
+          location.reload();
+        }
+      } catch (e) {
+        showErr("Ошибка: " + e.message);
+        alert("Регистрация: " + e.message);
+      }
+    }
+    function doLog() {
+      try {
+        var username = (($("login-username") || {}).value || "").trim();
+        var password = ($("login-password") || {}).value || "";
+        if (!username || !password) { showErr("Введите логин и пароль"); return; }
+        var users = [];
+        try { users = JSON.parse(localStorage.getItem("uq_users") || "[]"); } catch(e) { users = []; }
+        var found = null;
+        for (var i = 0; i < users.length; i++) {
+          if (users[i].username && users[i].username.toLowerCase() === username.toLowerCase() && users[i].password === password) {
+            found = users[i]; break;
+          }
+        }
+        if (!found) { showErr("Неверный логин или пароль. Сначала регистрация."); return; }
+        localStorage.setItem("uq_session", JSON.stringify({ id: found.id, username: found.username }));
+        try { localStorage.setItem("uq_saved_login", JSON.stringify({ username: username, password: password })); } catch(e) {}
+        if (typeof initApp === "function") {
+          window.user = { id: found.id, username: found.username };
+          initApp();
+        } else {
+          location.reload();
+        }
+      } catch (e) {
+        showErr("Ошибка: " + e.message);
+      }
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+      try {
+        var saved = JSON.parse(localStorage.getItem("uq_saved_login") || "null");
+        if (saved) {
+          if ($("login-username") && saved.username) $("login-username").value = saved.username;
+          if ($("login-password") && saved.password) $("login-password").value = saved.password;
+          if ($("reg-username") && saved.username) $("reg-username").value = saved.username;
+        }
+      } catch (e) {}
+      var tabR = $("tab-register");
+      var tabL = $("tab-login");
+      var btnR = $("btn-do-register");
+      var btnL = $("btn-do-login");
+      if (tabR) {
+        tabR.addEventListener("click", goRegister);
+        tabR.addEventListener("touchend", function(e) { e.preventDefault(); goRegister(); }, { passive: false });
+      }
+      if (tabL) {
+        tabL.addEventListener("click", goLogin);
+        tabL.addEventListener("touchend", function(e) { e.preventDefault(); goLogin(); }, { passive: false });
+      }
+      if (btnR) {
+        btnR.addEventListener("click", doReg);
+        btnR.addEventListener("touchend", function(e) { e.preventDefault(); doReg(); }, { passive: false });
+      }
+      if (btnL) {
+        btnL.addEventListener("click", doLog);
+        btnL.addEventListener("touchend", function(e) { e.preventDefault(); doLog(); }, { passive: false });
+      }
+    });
+  })();
+  </script>
+
+  <div id="lobby-list-screen" class="screen">
+    <div class="header"><h1>Лобби</h1><div class="user" id="header-user"></div></div>
+    <div class="content">
+      <p id="api-status-note" style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;"></p>
+      <button class="btn btn-primary" id="btn-create-lobby" style="margin-bottom:16px;">+ Создать лобби</button>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="join-code" placeholder="Код лобби" style="margin:0;flex:1;text-transform:uppercase;">
+        <button class="btn btn-outline btn-sm" id="btn-join-code">Войти</button>
+      </div>
+      <div id="lobbies-list"></div>
+      <div class="empty" id="lobbies-empty" style="display:none;">Нет активных лобби.<br>Создай своё!</div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item active" data-nav="lobbies"><span>🏠</span>Лобби</div>
+      <div class="nav-item" data-nav="quests"><span>📜</span>Квесты</div>
+      <div class="nav-item" data-nav="profile"><span>👤</span>Профиль</div>
+    </div>
+  </div>
+
+  <div id="quests-screen" class="screen">
+    <div class="header"><h1>Квесты</h1><div class="user" id="header-user2"></div></div>
+    <div class="content" id="quests-list"></div>
+    <div class="bottom-nav">
+      <div class="nav-item" data-nav="lobbies"><span>🏠</span>Лобби</div>
+      <div class="nav-item" data-nav="quests"><span>📜</span>Квесты</div>
+      <div class="nav-item" data-nav="profile"><span>👤</span>Профиль</div>
+    </div>
+  </div>
+
+  <div id="profile-screen" class="screen">
+    <div class="header"><h1>Профиль</h1></div>
+    <div class="content">
+      <div class="card" style="text-align:center;"><div style="font-size:3rem;margin-bottom:8px;">👤</div><h2 id="profile-name"></h2></div>
+      <button class="btn btn-outline" id="btn-open-dev" style="margin-top:16px;display:none;">🔧 Панель разработчика</button>
+      <button class="btn btn-outline" id="btn-logout" style="margin-top:10px;">Выйти</button>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" data-nav="lobbies"><span>🏠</span>Лобби</div>
+      <div class="nav-item" data-nav="quests"><span>📜</span>Квесты</div>
+      <div class="nav-item" data-nav="profile"><span>👤</span>Профиль</div>
+    </div>
+  </div>
+
+  <div id="lobby-room-screen" class="screen">
+    <div class="header">
+      <button class="btn btn-sm btn-outline" id="btn-leave-lobby" style="width:auto;">← Назад</button>
+      <h1>Лобби</h1><div></div>
+    </div>
+    <div class="content">
+      <div class="code-display" id="lobby-code">------</div>
+      <p style="text-align:center;color:var(--muted);margin-bottom:20px;">Поделись кодом с друзьями</p>
+      <div class="card"><h3 id="lobby-quest-title"></h3><p id="lobby-quest-desc"></p></div>
+      <h3 style="margin:16px 0 8px;">Игроки</h3>
+      <ul class="player-list card" id="players-list"></ul>
+      <button class="btn btn-outline" id="btn-ready" style="margin-top:16px;">Готов</button>
+      <button class="btn btn-success" id="btn-start" style="margin-top:12px;display:none;">Начать квест</button>
+    </div>
+  </div>
+
+  <div id="quest-screen" class="screen">
+    <div class="header"><h1 id="quest-play-title">Квест</h1><div class="user" id="my-score">0 очков</div></div>
+    <div class="content">
+      <div class="timer" id="quest-timer">90:00</div>
+      <div class="score-board" id="live-scores"></div>
+      <div id="map"></div>
+      <h3 style="margin-bottom:12px;">Задания</h3>
+      <div id="tasks-list"></div>
+      <button class="btn btn-success" id="btn-finish-quest" style="margin-top:16px;display:none;">🏁 Завершить и посмотреть результат</button>
+    </div>
+  </div>
+
+  
+  
+  <!-- DEVELOPER SCREEN -->
+  <div id="dev-screen" class="screen">
+    <div class="header">
+      <h1>🔧 Разработчик</h1>
+      <div class="user" style="cursor:pointer;" id="btn-dev-back">← Назад</div>
+    </div>
+    <div class="content">
+      <div class="demo-note">Результаты всех лобби и команд (данные с этого устройства)</div>
+      <div id="dev-stats" class="card" style="margin-bottom:14px;"></div>
+      <div id="dev-lobbies-list"></div>
+      <button class="btn btn-outline" id="btn-dev-refresh" style="margin-top:8px;">Обновить</button>
+      <button class="btn btn-outline" id="btn-dev-clear" style="margin-top:10px;color:#fda4af;border-color:rgba(244,63,94,0.4);">Очистить все данные</button>
+    </div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div id="results-screen" class="screen">
+    <div class="header">
+      <h1>Результаты</h1>
+      <div></div>
+    </div>
+    <div class="content" style="text-align:center;">
+      <div class="logo" style="font-size:3.5rem;">🏆</div>
+      <h2 id="results-title" style="margin-bottom:8px;font-size:1.4rem;">Квест завершён!</h2>
+      <p id="results-subtitle" style="color:var(--muted);margin-bottom:20px;"></p>
+      <div class="card" style="text-align:left;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+          <span style="color:var(--muted);">Очки</span>
+          <strong id="results-score" style="font-size:1.3rem;color:#a5b4fc;">0</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+          <span style="color:var(--muted);">Заданий выполнено</span>
+          <strong id="results-tasks">0 / 0</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+          <span style="color:var(--muted);">Время</span>
+          <strong id="results-time">—</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--muted);">Ошибок</span>
+          <strong id="results-wrongs">0</strong>
+        </div>
+      </div>
+      <div class="card" style="text-align:left;margin-top:4px;">
+        <h3 style="margin-bottom:12px;">Рейтинг</h3>
+        <ul class="player-list" id="results-ranking"></ul>
+      </div>
+      <button class="btn btn-primary" id="btn-results-home" style="margin-top:8px;">В лобби</button>
+      <button class="btn btn-outline" id="btn-results-again" style="margin-top:10px;">К заданиям</button>
+    </div>
+  </div>
+
+  <div class="modal" id="task-modal">
+    <div class="modal-content">
+      <div class="modal-handle"></div>
+      <h2 id="modal-task-title"></h2>
+      <p id="modal-task-desc" style="color:var(--muted);margin:12px 0 20px;line-height:1.5;"></p>
+      
+      <input type="text" id="task-answer" placeholder="Введи ответ или код">
+      <div id="answer-feedback" style="display:none;margin-bottom:12px;"></div>
+      <button class="btn btn-primary" id="btn-submit-answer">Проверить</button>
+      
+      <button class="btn btn-outline" id="btn-close-modal" style="margin-top:8px;">Закрыть</button>
+    </div>
+  </div>
+
+  <div class="modal" id="create-modal">
+    <div class="modal-content">
+      <div class="modal-handle"></div>
+      <h2>Создать лобби</h2>
+      <p style="color:var(--muted);margin:12px 0 20px;">Выбери квест</p>
+      <div id="create-quests-list"></div>
+      <button class="btn btn-outline" id="btn-close-create" style="margin-top:16px;">Отмена</button>
+    </div>
+  </div>
+
+  
+    <div class="modal" id="qr-modal">
+    <div class="modal-content">
+      <div class="modal-handle"></div>
+      <h2>Код задания</h2>
+      <p style="color:var(--muted);margin:8px 0 12px;font-size:0.9rem;">Введи код, который указан на точке квеста</p>
+      <div id="qr-result" style="display:none;margin:12px 0;padding:12px;border-radius:8px;font-size:0.9rem;"></div>
+      <input type="text" id="qr-manual-input" placeholder="Код с точки" autocomplete="off" style="font-size:16px;">
+      <button class="btn btn-primary" id="btn-qr-manual" style="margin-top:8px;">Проверить код</button>
+      <button class="btn btn-outline" id="btn-close-qr" style="margin-top:8px;">Закрыть</button>
+      <div id="qr-reader" style="display:none;"></div>
+      <button id="btn-qr-camera" style="display:none;"></button>
+      <button id="btn-qr-file" style="display:none;"></button>
+      <input type="file" id="qr-file-input" style="display:none;">
+      <button id="btn-qr-bind" style="display:none;"></button>
+    </div>
+  </div>
+
+  <script>
+    // ===== DATA =====
+    
+    // ============================================================
+    //  СЮДА ВСТАВЬ ССЫЛКУ С RENDER (шаг 5)
+    //  Пример: var API_URL = "https://urban-quest-xxxx.onrender.com";
+    //  Если оставить пустым "" — работает только на этом телефоне
+    // ============================================================
+    var API_URL = "https://urban-quest-server1.onrender.com";
+
+    // Админы — только они видят панель разработчика (логин без учёта регистра)
+    var ADMIN_USERS = ["admin", "админ"];
+
+    function isAdminUser(u) {
+      if (!u || !u.username) return false;
+      var name = String(u.username).toLowerCase();
+      for (var i = 0; i < ADMIN_USERS.length; i++) {
+        if (name === String(ADMIN_USERS[i]).toLowerCase()) return true;
+      }
+      return false;
+    }
+
+    function saveCredentials(username, password) {
+      try {
+        localStorage.setItem("uq_saved_login", JSON.stringify({
+          username: username,
+          password: password
+        }));
+      } catch (e) {}
+    }
+
+    function loadCredentials() {
+      try {
+        return JSON.parse(localStorage.getItem("uq_saved_login") || "null");
+      } catch (e) { return null; }
+    }
+
+    // ============================================================
+
+    function apiEnabled() {
+      return API_URL && API_URL.length > 8;
+    }
+
+    function api(path, method, body) {
+      var opts = {
+        method: method || "GET",
+        headers: { "Content-Type": "application/json" }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      return fetch(API_URL + path, opts).then(function(r) {
+        return r.json().then(function(data) {
+          if (!r.ok) throw new Error(data.error || ("Ошибка " + r.status));
+          return data;
+        });
+      });
+    }
+
+
+    const QUESTS = [
+      {
+        id: "ltk-6mkr",
+        title: "Тайны 6-го микрорайона (ЛТК)",
+        description: "Сложный логический квест. Каждое следующее задание открывается только после выполнения предыдущего!",
+        durationMinutes: 30,
+        sequential: true,
+        tasks: [
+          {
+            id: 1,
+            title: "1. Старт — Год основания",
+            description: "Ты у главного корпуса ЛТК. В каком году основан Лисаковский технический колледж?",
+            lat: 52.5503, lng: 62.4844,
+            type: "answer", answer: "1996",
+            unlockCode: "147",
+            points: 50
+          },
+          {
+            id: 2,
+            title: "2. Числовая последовательность",
+            description: "Дана последовательность: 1, 3, 7, 15, 31, ?\nКакое следующее число? (каждое = предыдущее × 2 + 1)",
+            lat: 52.5500, lng: 62.4855,
+            type: "answer", answer: "63",
+            unlockCode: "258",
+            points: 120
+          },
+          {
+            id: 3,
+            title: "3. Мини-судоку 4×4",
+            description: "Судоку 4×4. Цифры от 1 до 4. В каждой строке, каждом столбце и каждом квадрате 2×2 все цифры разные. Введи верхнюю строку (4 цифры).",
+            lat: 52.5495, lng: 62.4870,
+            type: "code", answer: "2341",
+            unlockCode: "369",
+            points: 180,
+            sudoku: true
+          },
+          {
+            id: 4,
+            title: "4. Логическая загадка",
+            description: "У трёх студентов: Айдоса, Бекнура и Дамира — специальности Сварщик, Электрик и Программист.\n• Айдос не сварщик и не программист.\n• Бекнур не электрик.\n• Дамир не программист.\nКто программист?",
+            lat: 52.5490, lng: 62.4900,
+            type: "answer", answer: "БЕКНУР",
+            unlockCode: "471",
+            points: 150
+          },
+          {
+            id: 5,
+            title: "5. Шифр Цезаря",
+            description: "Сообщение со сдвигом на 3 буквы назад: «ОЛВДНЙУН»\nРасшифруй (название города).",
+            lat: 52.5488, lng: 62.4885,
+            type: "answer", answer: "ЛИСАКОВСК",
+            unlockCode: "582",
+            points: 160
+          },
+          {
+            id: 6,
+            title: "6. Математика",
+            description: "Сколько будет: 1996 ÷ 3 × 2 − 100 ?\n(можно округлить до целого)",
+            lat: 52.5492, lng: 62.4865,
+            type: "answer", answer: "1231",
+            unlockCode: "693",
+            points: 140
+          },
+          {
+            id: 7,
+            title: "7. Финальный код",
+            description: "Собери финальный код: первые 2 цифры года основания + аббревиатура колледжа (3 буквы) + число из задания 2 (следующее в последовательности). Без пробелов.",
+            lat: 52.5503, lng: 62.4844,
+            type: "code", answer: "19ЛТК63",
+            unlockCode: "714",
+            points: 200
+          }
+        ]
+      }
+    ];
+
+    // ===== STORAGE =====
+    const DB = {
+      getUsers: function() {
+        try { return JSON.parse(localStorage.getItem("uq_users") || "[]"); }
+        catch(e) { return []; }
+      },
+      saveUsers: function(u) {
+        localStorage.setItem("uq_users", JSON.stringify(u));
+      },
+      getLobbies: function() {
+        try { return JSON.parse(localStorage.getItem("uq_lobbies") || "[]"); }
+        catch(e) { return []; }
+      },
+      saveLobbies: function(l) {
+        localStorage.setItem("uq_lobbies", JSON.stringify(l));
+      },
+      getSession: function() {
+        try { return JSON.parse(localStorage.getItem("uq_session") || "null"); }
+        catch(e) { return null; }
+      },
+      setSession: function(s) {
+        localStorage.setItem("uq_session", JSON.stringify(s));
+      },
+      clearSession: function() {
+        localStorage.removeItem("uq_session");
+      },
+      getQrBinds: function() {
+        try { return JSON.parse(localStorage.getItem("uq_qr_binds") || "{}"); }
+        catch(e) { return {}; }
+      },
+      saveQrBinds: function(b) {
+        localStorage.setItem("uq_qr_binds", JSON.stringify(b));
+      }
+    };
+
+    // ===== STATE =====
+    var user = DB.getSession();
+    var currentLobby = null;
+    var currentQuest = null;
+    var map = null;
+    var markers = [];
+    var timerInterval = null;
+    var selectedTask = null;
+    var userMarker = null;
+
+    // ===== HELPERS =====
+    function uid() {
+      return Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+    function genCode() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+    function showScreen(id) {
+      var screens = document.querySelectorAll(".screen");
+      for (var i = 0; i < screens.length; i++) screens[i].classList.remove("active");
+      document.getElementById(id).classList.add("active");
+    }
+    function showError(msg) {
+      var err = document.getElementById("auth-error");
+      err.textContent = msg;
+      err.style.display = "block";
+    }
+    function hideError() {
+      document.getElementById("auth-error").style.display = "none";
+    }
+
+    // ===== AUTH =====
+    window.showLogin = function() {
+      try {
+        document.getElementById("tab-login").classList.add("active");
+        document.getElementById("tab-register").classList.remove("active");
+        document.getElementById("login-box").style.display = "block";
+        document.getElementById("register-box").style.display = "none";
+        hideError();
+      } catch (e) { alert("Ошибка вкладки: " + e.message); }
+    };
+
+    window.showRegister = function() {
+      try {
+        document.getElementById("tab-register").classList.add("active");
+        document.getElementById("tab-login").classList.remove("active");
+        document.getElementById("login-box").style.display = "none";
+        document.getElementById("register-box").style.display = "block";
+        hideError();
+      } catch (e) { alert("Ошибка вкладки: " + e.message); }
+    };
+
+    window.doLogin = function() {
+      try {
+        var username = document.getElementById("login-username").value.trim();
+        var password = document.getElementById("login-password").value;
+        if (!username || !password) { showError("Введите логин и пароль"); return; }
+        if (apiEnabled()) {
+          api("/api/login", "POST", { username: username, password: password })
+            .then(function(u) {
+              user = { id: u.id, username: u.username };
+              DB.setSession(user);
+              initApp();
+            })
+            .catch(function(e) { showError(e.message || "Ошибка входа"); });
+          return;
+        }
+        var users = DB.getUsers();
+        var found = null;
+        for (var i = 0; i < users.length; i++) {
+          if (users[i].username.toLowerCase() === username.toLowerCase() && users[i].password === password) {
+            found = users[i]; break;
+          }
+        }
+        if (!found) { showError("Неверный логин или пароль. Сначала зарегистрируйтесь."); return; }
+        user = { id: found.id, username: found.username };
+        DB.setSession(user);
+        saveCredentials(username, password);
+        initApp();
+      } catch (e) { alert("Ошибка входа: " + e.message); }
+    };
+
+    window.doRegister = function() {
+      try {
+        var username = document.getElementById("reg-username").value.trim();
+        var password = document.getElementById("reg-password").value;
+        if (username.length < 3) { showError("Логин от 3 символов"); return; }
+        if (password.length < 4) { showError("Пароль от 4 символов"); return; }
+        if (apiEnabled()) {
+          api("/api/register", "POST", { username: username, password: password })
+            .then(function(u) {
+              user = { id: u.id, username: u.username };
+              DB.setSession(user);
+              saveCredentials(username, password);
+              initApp();
+            })
+            .catch(function(e) { showError(e.message || "Ошибка регистрации"); });
+          return;
+        }
+        var users = DB.getUsers();
+        for (var i = 0; i < users.length; i++) {
+          if (users[i].username.toLowerCase() === username.toLowerCase()) {
+            showError("Такой пользователь уже есть. Нажмите «Вход».");
+            return;
+          }
+        }
+        var newUser = { id: uid(), username: username, password: password };
+        users.push(newUser);
+        DB.saveUsers(users);
+        user = { id: newUser.id, username: newUser.username };
+        DB.setSession(user);
+        saveCredentials(username, password);
+        initApp();
+      } catch (e) { alert("Ошибка регистрации: " + e.message); }
+    };
+
+    try {
+      var _tl = document.getElementById("tab-login");
+      var _tr = document.getElementById("tab-register");
+      var _bl = document.getElementById("btn-do-login");
+      var _br = document.getElementById("btn-do-register");
+      if (_tl) _tl.onclick = window.showLogin;
+      if (_tr) _tr.onclick = window.showRegister;
+      if (_bl) _bl.onclick = window.doLogin;
+      if (_br) _br.onclick = window.doRegister;
+    } catch (e) {}
+
+
+    document.getElementById("btn-logout").onclick = function() {
+      user = null;
+      DB.clearSession();
+      showScreen("auth-screen");
+    };
+
+    // ===== NAV =====
+    var navItems = document.querySelectorAll("[data-nav]");
+    for (var i = 0; i < navItems.length; i++) {
+      navItems[i].onclick = function() {
+        var nav = this.getAttribute("data-nav");
+        if (nav === "lobbies") { loadLobbies(); showScreen("lobby-list-screen"); }
+        if (nav === "quests") { loadQuestsList(); showScreen("quests-screen"); }
+        if (nav === "profile") {
+          document.getElementById("profile-name").textContent = user.username;
+          showScreen("profile-screen");
+        }
+        var all = document.querySelectorAll("[data-nav]");
+        for (var j = 0; j < all.length; j++) all[j].classList.remove("active");
+        var active = document.querySelectorAll('[data-nav="' + nav + '"]');
+        for (var k = 0; k < active.length; k++) active[k].classList.add("active");
+      };
+    }
+
+    // ===== LOBBIES =====
+    
+    function updateApiStatusNote() {
+      var el = document.getElementById("api-status-note");
+      if (!el) return;
+      if (apiEnabled()) {
+        el.textContent = "🌐 Сервер: " + API_URL + " — лобби общие для всех устройств";
+        el.style.color = "#6ee7b7";
+      } else {
+        el.textContent = "📱 Локальный режим — код лобби работает только на этом телефоне. Нужен API_URL с Render.";
+        el.style.color = "#fcd34d";
+      }
+    }
+
+    function loadLobbies() {
+      updateApiStatusNote();
+      if (apiEnabled()) {
+        api("/api/lobbies").then(function(lobbies) {
+          renderLobbiesList(lobbies);
+        }).catch(function(e) {
+          console.log(e);
+          renderLobbiesList([]);
+        });
+        return;
+      }
+      var lobbies = DB.getLobbies().filter(function(l) { return l.status === "waiting" || l.status === "playing"; });
+      renderLobbiesList(lobbies);
+    }
+
+    function renderLobbiesList(lobbies) {
+      var container = document.getElementById("lobbies-list");
+      var empty = document.getElementById("lobbies-empty");
+      if (!lobbies || !lobbies.length) {
+        container.innerHTML = "";
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+      var html = "";
+      for (var i = 0; i < lobbies.length; i++) {
+        var l = lobbies[i];
+        html += '<div class="card" style="cursor:pointer;" data-join="' + l.code + '">';
+        html += '<h3>' + l.questTitle + '</h3>';
+        html += '<p>Хост: ' + l.host + ' · ' + l.players.length + '/' + l.maxPlayers + ' · Код: <strong>' + l.code + '</strong></p>';
+        html += '<span class="badge">' + (l.status === "waiting" ? "Ожидание" : "Идёт игра") + '</span></div>';
+      }
+      container.innerHTML = html;
+      var cards = container.querySelectorAll("[data-join]");
+      for (var j = 0; j < cards.length; j++) {
+        cards[j].onclick = function() { joinByCode(this.getAttribute("data-join")); };
+      }
+    }
+
+    document.getElementById("btn-join-code").onclick = function() {
+      var code = document.getElementById("join-code").value.trim().toUpperCase();
+      if (code) joinByCode(code);
+    };
+
+    function joinByCode(code) {
+      code = String(code || "").trim().toUpperCase();
+      if (!code) { alert("Введите код лобби"); return; }
+      if (apiEnabled()) {
+        api("/api/lobbies/join", "POST", {
+          code: code,
+          userId: user.id,
+          username: user.username
+        }).then(function(lobby) {
+          enterLobby(lobby);
+        }).catch(function(e) {
+          alert((e.message || "Не удалось войти") + "\nПроверьте код и что лобби ещё не начато.");
+        });
+        return;
+      }
+      // Локальный режим — лобби только на ЭТОМ устройстве
+      var lobbies = DB.getLobbies();
+      var lobby = null;
+      var foundAny = null;
+      for (var i = 0; i < lobbies.length; i++) {
+        if (String(lobbies[i].code).toUpperCase() === code) {
+          foundAny = lobbies[i];
+          if (lobbies[i].status === "waiting") { lobby = lobbies[i]; break; }
+        }
+      }
+      if (!lobby) {
+        if (foundAny) {
+          alert("Это лобби уже началось или завершено. Создайте новое.");
+        } else {
+          alert("Лобби не найдено на этом телефоне.\n\nБез сервера Render код с другого телефона не работает.\nВставьте API_URL сервера в код файла — тогда лобби будут общими.");
+        }
+        return;
+      }
+      if (lobby.players.length >= lobby.maxPlayers) { alert("Лобби заполнено"); return; }
+      var already = false;
+      for (var j = 0; j < lobby.players.length; j++) {
+        if (lobby.players[j].id === user.id) { already = true; break; }
+      }
+      if (!already) {
+        lobby.players.push({ id: user.id, username: user.username, ready: false, score: 0, completedTasks: [] });
+        DB.saveLobbies(lobbies);
+      }
+      enterLobby(lobby);
+    }
+
+    function enterLobby(lobby) {
+      currentLobby = lobby;
+      document.getElementById("lobby-code").textContent = lobby.code;
+      document.getElementById("lobby-quest-title").textContent = lobby.questTitle;
+      var q = null;
+      for (var i = 0; i < QUESTS.length; i++) if (QUESTS[i].id === lobby.questId) q = QUESTS[i];
+      document.getElementById("lobby-quest-desc").textContent = q ? q.description : "";
+      updatePlayersList();
+      document.getElementById("btn-start").style.display = (lobby.hostId === user.id) ? "block" : "none";
+      showScreen("lobby-room-screen");
+    }
+
+    function updatePlayersList() {
+      var html = "";
+      for (var i = 0; i < currentLobby.players.length; i++) {
+        var p = currentLobby.players[i];
+        html += "<li><span>" + p.username;
+        if (p.id === currentLobby.hostId) html += ' <span class="badge host">Хост</span>';
+        html += '</span><span class="badge ' + (p.ready ? "ready" : "") + '">' + (p.ready ? "Готов" : "Не готов") + "</span></li>";
+      }
+      document.getElementById("players-list").innerHTML = html;
+      var me = null;
+      for (var j = 0; j < currentLobby.players.length; j++) {
+        if (currentLobby.players[j].id === user.id) me = currentLobby.players[j];
+      }
+      document.getElementById("btn-ready").textContent = (me && me.ready) ? "Не готов" : "Готов";
+    }
+
+    document.getElementById("btn-ready").onclick = function() {
+      if (!currentLobby) return;
+      var me = null;
+      for (var j = 0; j < currentLobby.players.length; j++) {
+        if (currentLobby.players[j].id === user.id) { me = currentLobby.players[j]; break; }
+      }
+      if (!me) return;
+      var newReady = !me.ready;
+      if (apiEnabled()) {
+        api("/api/lobbies/" + currentLobby.id, "PATCH", { userId: user.id, ready: newReady })
+          .then(function(lobby) {
+            currentLobby = lobby;
+            updatePlayersList();
+          }).catch(function(e) { alert(e.message); });
+        return;
+      }
+      var lobbies = DB.getLobbies();
+      var lobby = null;
+      for (var i = 0; i < lobbies.length; i++) if (lobbies[i].id === currentLobby.id) lobby = lobbies[i];
+      if (!lobby) return;
+      for (var j = 0; j < lobby.players.length; j++) {
+        if (lobby.players[j].id === user.id) {
+          lobby.players[j].ready = newReady;
+          break;
+        }
+      }
+      DB.saveLobbies(lobbies);
+      currentLobby = lobby;
+      updatePlayersList();
+    };
+
+    document.getElementById("btn-start").onclick = function() {
+      if (!currentLobby || currentLobby.hostId !== user.id) return;
+      if (apiEnabled()) {
+        api("/api/lobbies/" + currentLobby.id, "PATCH", { userId: user.id, start: true })
+          .then(function(lobby) {
+            currentLobby = lobby;
+            startQuestPlay();
+          }).catch(function(e) { alert(e.message); });
+        return;
+      }
+      var lobbies = DB.getLobbies();
+      var lobby = null;
+      for (var i = 0; i < lobbies.length; i++) if (lobbies[i].id === currentLobby.id) lobby = lobbies[i];
+      if (!lobby || lobby.hostId !== user.id) return;
+      lobby.status = "playing";
+      lobby.startedAt = new Date().toISOString();
+      DB.saveLobbies(lobbies);
+      currentLobby = lobby;
+      startQuestPlay();
+    };
+
+    document.getElementById("btn-leave-lobby").onclick = function() {
+      currentLobby = null;
+      loadLobbies();
+      showScreen("lobby-list-screen");
+    };
+
+    document.getElementById("btn-create-lobby").onclick = function() {
+      var html = "";
+      for (var i = 0; i < QUESTS.length; i++) {
+        var q = QUESTS[i];
+        html += '<div class="card" style="cursor:pointer;" data-qid="' + q.id + '">';
+        html += "<h3>" + q.title + "</h3><p>" + q.description + "</p>";
+        html += '<p style="margin-top:8px;">⏱ ' + q.durationMinutes + " мин · " + q.tasks.length + " заданий</p></div>";
+      }
+      document.getElementById("create-quests-list").innerHTML = html;
+      var cards = document.querySelectorAll("#create-quests-list [data-qid]");
+      for (var j = 0; j < cards.length; j++) {
+        cards[j].onclick = function() { createLobby(this.getAttribute("data-qid")); };
+      }
+      document.getElementById("create-modal").classList.add("active");
+    };
+
+    function createLobby(questId) {
+      var quest = null;
+      for (var i = 0; i < QUESTS.length; i++) if (QUESTS[i].id === questId) quest = QUESTS[i];
+      if (!quest) return;
+      if (apiEnabled()) {
+        api("/api/lobbies", "POST", {
+          questId: questId,
+          questTitle: quest.title,
+          hostId: user.id,
+          hostUsername: user.username,
+          maxPlayers: 6
+        }).then(function(lobby) {
+          document.getElementById("create-modal").classList.remove("active");
+          enterLobby(lobby);
+        }).catch(function(e) { alert(e.message || "Не удалось создать лобби"); });
+        return;
+      }
+      var lobby = {
+        id: uid(), code: genCode(), questId: questId, questTitle: quest.title,
+        host: user.username, hostId: user.id,
+        players: [{ id: user.id, username: user.username, ready: false, score: 0, completedTasks: [] }],
+        maxPlayers: 6, status: "waiting", startedAt: null, createdAt: new Date().toISOString()
+      };
+      var lobbies = DB.getLobbies();
+      lobbies.push(lobby);
+      DB.saveLobbies(lobbies);
+      document.getElementById("create-modal").classList.remove("active");
+      enterLobby(lobby);
+    }
+
+    document.getElementById("btn-close-create").onclick = function() {
+      document.getElementById("create-modal").classList.remove("active");
+    };
+
+    function loadQuestsList() {
+      var html = "";
+      for (var i = 0; i < QUESTS.length; i++) {
+        var q = QUESTS[i];
+        html += '<div class="card"><h3>' + q.title + '</h3><p>' + q.description + '</p>';
+        html += '<p style="margin-top:8px;color:var(--muted);">⏱ ' + q.durationMinutes + ' мин · ' + q.tasks.length + ' заданий</p></div>';
+      }
+      document.getElementById("quests-list").innerHTML = html;
+    }
+
+    // ===== QUEST PLAY =====
+    function startQuestPlay() {
+      for (var i = 0; i < QUESTS.length; i++) {
+        if (QUESTS[i].id === currentLobby.questId) currentQuest = QUESTS[i];
+      }
+      document.getElementById("quest-play-title").textContent = currentQuest.title;
+      showScreen("quest-screen");
+      setTimeout(function() {
+        initMap();
+        renderTasks();
+        updateLiveScores();
+        startTimer(currentQuest.durationMinutes, currentLobby.startedAt);
+      }, 150);
+    }
+
+    function initMap() {
+      if (map) { map.remove(); map = null; markers = []; userMarker = null; }
+      var t0 = currentQuest.tasks[0];
+      var center = t0 ? [t0.lat, t0.lng] : [52.55, 62.49];
+      map = L.map("map").setView(center, 16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OSM" }).addTo(map);
+      var me = null;
+      for (var i = 0; i < currentLobby.players.length; i++) {
+        if (currentLobby.players[i].id === user.id) me = currentLobby.players[i];
+      }
+      for (var j = 0; j < currentQuest.tasks.length; j++) {
+        var task = currentQuest.tasks[j];
+        var done = me && me.completedTasks.indexOf(task.id) !== -1;
+        var m = L.marker([task.lat, task.lng]).addTo(map);
+        m.bindPopup("<b>" + task.title + "</b><br>" + (done ? "✅ Выполнено" : "📍 Задание"));
+        markers.push(m);
+      }
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(function(pos) {
+          var lat = pos.coords.latitude, lng = pos.coords.longitude;
+          if (!userMarker) {
+            userMarker = L.circleMarker([lat, lng], { radius: 9, color: "#3b82f6", fillColor: "#3b82f6", fillOpacity: 0.9, weight: 3 }).addTo(map).bindPopup("Вы здесь");
+          } else {
+            userMarker.setLatLng([lat, lng]);
+          }
+        }, function() {}, { enableHighAccuracy: true });
+      }
+    }
+
+    function renderTasks() {
+      var me = null;
+      for (var i = 0; i < currentLobby.players.length; i++) {
+        if (currentLobby.players[i].id === user.id) me = currentLobby.players[i];
+      }
+      var completed = me ? me.completedTasks : [];
+      var html = "";
+      for (var j = 0; j < currentQuest.tasks.length; j++) {
+        var task = currentQuest.tasks[j];
+        var done = completed.indexOf(task.id) !== -1;
+        var prevId = j > 0 ? currentQuest.tasks[j - 1].id : null;
+        var locked = prevId && completed.indexOf(prevId) === -1;
+        var status = done ? "✅ " : (locked ? "🔒 " : "🔑 ");
+        var extraClass = done ? "completed" : (locked ? "locked" : "");
+        html += '<div class="task-card ' + extraClass + '" data-task="' + task.id + '" data-locked="' + locked + '">';
+        html += "<h4>" + status + task.title + "</h4>";
+        if (locked) {
+          html += '<p style="font-size:0.9rem;color:var(--muted);">Сначала выполни предыдущее задание</p>';
+        } else if (done) {
+          var nextHint = "";
+          if (j < currentQuest.tasks.length - 1) {
+            nextHint = " → дальше: " + currentQuest.tasks[j + 1].title;
+          } else {
+            nextHint = " — финиш!";
+          }
+          html += '<p style="font-size:0.9rem;color:var(--muted);">✅ Выполнено' + nextHint + '</p>';
+        } else {
+          html += '<p style="font-size:0.9rem;color:var(--muted);">Нажми и введи код с точки</p>';
+        }
+        html += '<div class="task-meta"><span>🎯 ' + task.points + ' очков</span><span>🔑 Код</span></div></div>';
+      }
+      document.getElementById("tasks-list").innerHTML = html;
+      var cards = document.querySelectorAll("#tasks-list [data-task]");
+      for (var k = 0; k < cards.length; k++) {
+        cards[k].onclick = function() {
+          if (this.getAttribute("data-locked") === "true") {
+            alert("Сначала выполни предыдущее задание!");
+            return;
+          }
+          var id = parseInt(this.getAttribute("data-task"), 10);
+          var me2 = null;
+          for (var m = 0; m < currentLobby.players.length; m++) {
+            if (currentLobby.players[m].id === user.id) me2 = currentLobby.players[m];
+          }
+          if (me2 && me2.completedTasks.indexOf(id) !== -1) return;
+          // Open code entry for this task
+          selectedTask = null;
+          for (var t = 0; t < currentQuest.tasks.length; t++) {
+            if (currentQuest.tasks[t].id === id) selectedTask = currentQuest.tasks[t];
+          }
+          if (selectedTask) startQrForTask();
+        };
+      }
+    }
+
+    function openTask(taskId) {
+      selectedTask = null;
+      for (var i = 0; i < currentQuest.tasks.length; i++) {
+        if (currentQuest.tasks[i].id === taskId) selectedTask = currentQuest.tasks[i];
+      }
+      if (!selectedTask) return;
+      document.getElementById("modal-task-title").textContent = selectedTask.title;
+      var descEl = document.getElementById("modal-task-desc");
+      if (selectedTask.sudoku) {
+        descEl.innerHTML = "Реши мини-судоку (цифры 1–4).<br>В каждой <b>строке</b>, <b>столбце</b> и блоке <b>2×2</b> — все цифры разные.<br><br>" +
+          '<div class="sudoku-grid">' +
+          '<div class="sudoku-cell given">2</div><div class="sudoku-cell empty"></div><div class="sudoku-cell empty"></div><div class="sudoku-cell given">1</div>' +
+          '<div class="sudoku-cell empty"></div><div class="sudoku-cell given">1</div><div class="sudoku-cell given">2</div><div class="sudoku-cell empty"></div>' +
+          '<div class="sudoku-cell empty"></div><div class="sudoku-cell given">2</div><div class="sudoku-cell given">1</div><div class="sudoku-cell empty"></div>' +
+          '<div class="sudoku-cell given">1</div><div class="sudoku-cell empty"></div><div class="sudoku-cell empty"></div><div class="sudoku-cell given">2</div>' +
+          '</div>' +
+          '<p style="text-align:center;color:#94a3b8;font-size:0.85rem;margin-top:10px;">Судоку <b>4×4</b>. Введи <b>верхнюю строку</b> — 4 цифры без пробелов</p>';
+      } else {
+        descEl.textContent = selectedTask.description;
+      }
+      document.getElementById("task-answer").value = "";
+      document.getElementById("answer-feedback").style.display = "none";
+      document.getElementById("task-modal").classList.add("active");
+    }
+
+    document.getElementById("btn-submit-answer").onclick = function() {
+      if (!selectedTask) return;
+      var answer = document.getElementById("task-answer").value.trim();
+      if (!answer) return;
+      var correct = false;
+      if (selectedTask.id === 6) {
+        var num = parseFloat(answer.replace(",", "."));
+        correct = !isNaN(num) && Math.abs(num - 1230.67) < 2;
+      } else {
+        correct = answer.toUpperCase() === String(selectedTask.answer).toUpperCase();
+      }
+      var fb = document.getElementById("answer-feedback");
+      fb.style.display = "block";
+
+      // Always use currentLobby as source of truth
+      if (!currentLobby) {
+        fb.className = "error";
+        fb.textContent = "Ошибка: лобби не найдено";
+        return;
+      }
+      var player = null;
+      for (var j = 0; j < currentLobby.players.length; j++) {
+        if (currentLobby.players[j].id === user.id) { player = currentLobby.players[j]; break; }
+      }
+      if (!player) {
+        fb.className = "error";
+        fb.textContent = "Ошибка: игрок не в лобби";
+        return;
+      }
+      if (!player.completedTasks) player.completedTasks = [];
+      if (!player.wrongAttempts) player.wrongAttempts = {};
+
+      if (correct) {
+        var base = selectedTask.points;
+        var wrongs = player.wrongAttempts[selectedTask.id] ? player.wrongAttempts[selectedTask.id] : 0;
+        var afterWrong = Math.max(10, base - wrongs * 15);
+        var timeBonus = 0;
+        var timeNote = "";
+        if (currentLobby.startedAt && currentQuest) {
+          var end = new Date(currentLobby.startedAt).getTime() + currentQuest.durationMinutes * 60 * 1000;
+          var leftMs = Math.max(0, end - Date.now());
+          var totalMs = currentQuest.durationMinutes * 60 * 1000;
+          var leftRatio = leftMs / totalMs;
+          if (leftRatio >= 0.7) {
+            timeBonus = Math.round(afterWrong * 0.3);
+            timeNote = " ⚡ бонус за время +" + timeBonus;
+          } else if (leftRatio >= 0.4) {
+            timeBonus = Math.round(afterWrong * 0.1);
+            timeNote = " ⏱ бонус +" + timeBonus;
+          } else if (leftRatio < 0.15) {
+            timeBonus = -Math.round(afterWrong * 0.2);
+            timeNote = " ⏳ штраф за время " + timeBonus;
+          }
+        }
+        var finalPoints = Math.max(5, afterWrong + timeBonus);
+        var nextMsg = getNextPointMessage(selectedTask.id);
+        var penaltyNote = wrongs > 0 ? (" (штраф за " + wrongs + " ошибок: −" + (wrongs * 15) + ")") : "";
+        fb.className = "success-msg";
+        fb.textContent = "Верно! +" + finalPoints + " очков" + penaltyNote + timeNote + ". " + nextMsg;
+
+        if (player.completedTasks.indexOf(selectedTask.id) === -1) {
+          player.completedTasks.push(selectedTask.id);
+          player.score = (player.score || 0) + finalPoints;
+        }
+
+        // Save local
+        var lobbies = DB.getLobbies();
+        var found = false;
+        for (var i = 0; i < lobbies.length; i++) {
+          if (lobbies[i].id === currentLobby.id) {
+            lobbies[i] = currentLobby;
+            found = true;
+            break;
+          }
+        }
+        if (!found) lobbies.push(currentLobby);
+        DB.saveLobbies(lobbies);
+
+        updateLiveScores();
+        renderTasks();
+        syncProgressToServer();
+        centerMapOnNextTask(selectedTask.id);
+        updateFinishButton();
+
+        if (player.completedTasks.length >= currentQuest.tasks.length) {
+          setTimeout(function() {
+            if (confirm("Все задания выполнены! Посмотреть результат?")) showResults();
+          }, 1200);
+        }
+
+        setTimeout(function() {
+          document.getElementById("task-modal").classList.remove("active");
+        }, 1500);
+      } else {
+        var penalty = 10;
+        if (!player.wrongAttempts[selectedTask.id]) player.wrongAttempts[selectedTask.id] = 0;
+        player.wrongAttempts[selectedTask.id] += 1;
+        player.score = Math.max(0, (player.score || 0) - penalty);
+        var lobbies2 = DB.getLobbies();
+        for (var i2 = 0; i2 < lobbies2.length; i2++) {
+          if (lobbies2[i2].id === currentLobby.id) { lobbies2[i2] = currentLobby; break; }
+        }
+        DB.saveLobbies(lobbies2);
+        updateLiveScores();
+        syncProgressToServer();
+        var w = player.wrongAttempts[selectedTask.id];
+        fb.className = "error";
+        fb.textContent = "Неверно! −" + penalty + " очков. Ошибок: " + w;
+      }
+    };
+
+    document.getElementById("btn-close-modal").onclick = function() {
+      document.getElementById("task-modal").classList.remove("active");
+    };
+
+    function updateLiveScores() {
+      var sorted = currentLobby.players.slice().sort(function(a, b) { return b.score - a.score; });
+      var html = "";
+      for (var i = 0; i < sorted.length; i++) {
+        html += '<div class="score-item">' + sorted[i].username + ': <strong>' + sorted[i].score + '</strong></div>';
+      }
+      document.getElementById("live-scores").innerHTML = html;
+      var me = null;
+      for (var j = 0; j < currentLobby.players.length; j++) {
+        if (currentLobby.players[j].id === user.id) me = currentLobby.players[j];
+      }
+      document.getElementById("my-score").textContent = (me ? me.score : 0) + " очков";
+    }
+
+    function startTimer(durationMin, startedAt) {
+      if (timerInterval) clearInterval(timerInterval);
+      var end = new Date(startedAt).getTime() + durationMin * 60 * 1000;
+      var el = document.getElementById("quest-timer");
+      function tick() {
+        var left = Math.max(0, end - Date.now());
+        var m = Math.floor(left / 60000);
+        var s = Math.floor((left % 60000) / 1000);
+        el.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+        el.classList.remove("warning", "danger");
+        if (left < 5 * 60000) el.classList.add("warning");
+        if (left < 60000) el.classList.add("danger");
+        if (left <= 0) {
+          clearInterval(timerInterval);
+          el.textContent = "Время вышло!";
+        }
+      }
+      tick();
+      timerInterval = setInterval(tick, 1000);
+    }
+
+    
+    
+    
+    
+    // ===== QR SCANNER =====
+    var html5QrCode = null;
+    var pendingQrCode = "";
+
+    function showQrMsg(text, ok) {
+      var el = document.getElementById("qr-result");
+      if (!el) return;
+      el.style.display = "block";
+      if (ok === true) {
+        el.style.background = "#14532d";
+        el.style.color = "#bbf7d0";
+      } else if (ok === false) {
+        el.style.background = "#7f1d1d";
+        el.style.color = "#fecaca";
+      } else {
+        el.style.background = "#1e3a5f";
+        el.style.color = "#93c5fd";
+      }
+      el.textContent = text;
+    }
+
+    function normalizeCode(s) {
+      return String(s || "").toUpperCase().replace(/\s+/g, "").replace(/[«»"'`]/g, "").trim();
+    }
+
+    function qrFingerprint(s) {
+      var n = normalizeCode(s);
+      var m = n.match(/([A-Z0-9_-]{4,20})$/);
+      return m ? m[1] : n;
+    }
+
+    function codesMatch(a, b) {
+      if (!a || !b) return false;
+      var na = normalizeCode(a);
+      var nb = normalizeCode(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      // For short codes (1-3 chars) only exact match — avoids false match on "1","2" inside URLs
+      if (na.length <= 3 || nb.length <= 3) return false;
+      if (na.indexOf(nb) !== -1 || nb.indexOf(na) !== -1) return true;
+      var fa = qrFingerprint(a);
+      var fb = qrFingerprint(b);
+      if (fa && fb && fa.length >= 4 && fa === fb) return true;
+      return false;
+    }
+
+    function stopQr() {
+      if (!html5QrCode) return;
+      var ref = html5QrCode;
+      html5QrCode = null;
+      try {
+        ref.stop().then(function() { try { ref.clear(); } catch (e) {} }).catch(function() {});
+      } catch (e) {}
+    }
+
+    function acceptQrAndOpen() {
+      showQrMsg("Код принят! Открываю задание...", true);
+      stopQr();
+      setTimeout(function() {
+        var modal = document.getElementById("qr-modal");
+        if (modal) modal.classList.remove("active");
+        if (selectedTask) openTask(selectedTask.id);
+      }, 400);
+    }
+
+    function checkQrCode(text) {
+      if (!selectedTask) {
+        showQrMsg("Сначала выбери задание", false);
+        return;
+      }
+      var scannedRaw = String(text || "").trim();
+      if (!scannedRaw) {
+        showQrMsg("Пустой код", false);
+        return;
+      }
+      pendingQrCode = scannedRaw;
+
+      var binds = {};
+      try { binds = DB.getQrBinds() || {}; } catch (e) { binds = {}; }
+
+      var tid = String(selectedTask.id);
+      var bound = binds[tid] || "";
+      var boundFp = binds[tid + "_fp"] || "";
+      var scanFp = qrFingerprint(scannedRaw);
+
+      // STRICT: unlock code (3 digits), TASK-id, or already bound code
+      var ok = false;
+      var exp = normalizeCode(selectedTask.unlockCode || selectedTask.answer);
+      var sc = normalizeCode(scannedRaw);
+      if (exp && sc && exp === sc) ok = true;
+      if (sc === normalizeCode("TASK" + tid)) ok = true;
+      if (bound && codesMatch(scannedRaw, bound)) ok = true;
+      if (boundFp && scanFp && scanFp.length >= 4 && boundFp === scanFp) ok = true;
+
+      if (ok) {
+        showQrMsg("✅ Код верный! Открываю задание...", true);
+        stopQr();
+        setTimeout(function() {
+          var modal = document.getElementById("qr-modal");
+          if (modal) modal.classList.remove("active");
+          openTask(selectedTask.id);
+        }, 450);
+        return;
+      }
+
+      // Wrong QR — keep camera running, offer bind
+      showQrMsg("❌ Неверный код для этого задания. Считано: " + scannedRaw.substring(0, 40) + ". Нажми «Привязать код», если это нужная точка.", false);
+      var bindBtn = document.getElementById("btn-qr-bind");
+      if (bindBtn) bindBtn.style.display = "block";
+      // DO NOT stop camera — user can scan again
+    }
+
+
+    function bindCurrentQr() {
+      if (!selectedTask) {
+        showQrMsg("Задание не выбрано", false);
+        return;
+      }
+      var code = pendingQrCode;
+      if (!code) {
+        var inp = document.getElementById("qr-manual-input");
+        if (inp && inp.value.trim()) code = inp.value.trim();
+      }
+      if (!code) {
+        showQrMsg("Сначала отсканируй QR или введи код в поле", false);
+        return;
+      }
+      pendingQrCode = code;
+      var tid = String(selectedTask.id);
+      var binds = {};
+      try { binds = DB.getQrBinds() || {}; } catch (e) { binds = {}; }
+      binds[tid] = code;
+      binds[tid + "_fp"] = qrFingerprint(code);
+      try {
+        localStorage.setItem("uq_qr_binds", JSON.stringify(binds));
+        DB.saveQrBinds(binds);
+      } catch (e) {
+        showQrMsg("Ошибка сохранения: " + e.message, false);
+        return;
+      }
+      var verify = {};
+      try { verify = JSON.parse(localStorage.getItem("uq_qr_binds") || "{}"); } catch (e) {}
+      if (!verify[tid]) {
+        showQrMsg("Не сохранилось (localStorage). Попробуй другой браузер (Chrome).", false);
+        return;
+      }
+      showQrMsg("✅ Код привязан к заданию " + tid + "!", true);
+      var bindBtn = document.getElementById("btn-qr-bind");
+      if (bindBtn) bindBtn.style.display = "none";
+      setTimeout(function() { acceptQrAndOpen(); }, 500);
+    }
+
+    function startQrForTask() {
+      pendingQrCode = "";
+      var res = document.getElementById("qr-result");
+      if (res) { res.style.display = "none"; res.textContent = ""; }
+      var inp = document.getElementById("qr-manual-input");
+      if (inp) inp.value = "";
+      var bindBtn = document.getElementById("btn-qr-bind");
+      if (bindBtn) bindBtn.style.display = "none";
+      var modal = document.getElementById("qr-modal");
+      if (modal) modal.classList.add("active");
+      stopQr();
+      bindQrButtons();
+      var tid = selectedTask ? String(selectedTask.id) : "";
+      showQrMsg("Задание " + tid + ": введи трёхзначный код с точки", null);
+      // hide camera/file buttons if present
+      var cam = document.getElementById("btn-qr-camera");
+      var fileBtn = document.getElementById("btn-qr-file");
+      if (cam) cam.style.display = "none";
+      if (fileBtn) fileBtn.style.display = "none";
+      var reader = document.getElementById("qr-reader");
+      if (reader) reader.style.display = "none";
+    }
+
+    function startCameraScan() {
+      stopQr();
+      if (typeof Html5Qrcode === "undefined") {
+        showQrMsg("Сканер не загрузился. Используй фото или ручной ввод.", null);
+        return;
+      }
+      showQrMsg("Запуск камеры...", null);
+      try {
+        html5QrCode = new Html5Qrcode("qr-reader");
+        var cfg = { fps: 10, qrbox: { width: 220, height: 220 } };
+        html5QrCode.start({ facingMode: "environment" }, cfg, function(t) { checkQrCode(t); }, function() {})
+          .catch(function() {
+            html5QrCode.start({ facingMode: "user" }, cfg, function(t) { checkQrCode(t); }, function() {})
+              .catch(function() {
+                showQrMsg("Камера недоступна. Загрузи фото QR или введи код.", null);
+              });
+          });
+      } catch (e) {
+        showQrMsg("Камера недоступна. Загрузи фото или введи код.", null);
+      }
+    }
+
+    function scanQrFromFile(file) {
+      if (!file || typeof Html5Qrcode === "undefined") {
+        showQrMsg("Не удалось распознать. Введи код вручную.", false);
+        return;
+      }
+      stopQr();
+      showQrMsg("Распознаю фото...", null);
+      var scanner = new Html5Qrcode("qr-reader");
+      scanner.scanFile(file, true).then(function(text) {
+        checkQrCode(text);
+        try { scanner.clear(); } catch (e) {}
+      }).catch(function() {
+        showQrMsg("Не распознан QR на фото. Введи код вручную.", false);
+      });
+    }
+
+    function bindQrButtons() {
+      var closeBtn = document.getElementById("btn-close-qr");
+      var manualBtn = document.getElementById("btn-qr-manual");
+      var camBtn = document.getElementById("btn-qr-camera");
+      var fileBtn = document.getElementById("btn-qr-file");
+      var fileInput = document.getElementById("qr-file-input");
+      var bindBtn = document.getElementById("btn-qr-bind");
+      var closeTask = document.getElementById("btn-close-modal");
+
+      if (closeBtn) {
+        closeBtn.onclick = function(e) {
+          if (e) e.preventDefault();
+          stopQr();
+          var m = document.getElementById("qr-modal");
+          if (m) m.classList.remove("active");
+        };
+      }
+      if (closeTask) {
+        closeTask.onclick = function(e) {
+          if (e) e.preventDefault();
+          var m = document.getElementById("task-modal");
+          if (m) m.classList.remove("active");
+        };
+      }
+      if (manualBtn) {
+        manualBtn.onclick = function(e) {
+          if (e) e.preventDefault();
+          var val = (document.getElementById("qr-manual-input") || {}).value || "";
+          val = val.trim();
+          if (!val) { showQrMsg("Введи код", false); return; }
+          checkQrCode(val);
+        };
+      }
+      if (camBtn) camBtn.onclick = function(e) { if (e) e.preventDefault(); startCameraScan(); };
+      if (fileBtn && fileInput) {
+        fileBtn.onclick = function(e) { if (e) e.preventDefault(); fileInput.click(); };
+        fileInput.onchange = function() {
+          if (fileInput.files && fileInput.files[0]) {
+            scanQrFromFile(fileInput.files[0]);
+            fileInput.value = "";
+          }
+        };
+      }
+      if (bindBtn) {
+        bindBtn.onclick = function(e) {
+          if (e) e.preventDefault();
+          bindCurrentQr();
+        };
+      }
+    }
+
+
+    
+
+
+
+
+
+    function getNextPointMessage(currentTaskId) {
+      if (!currentQuest || !currentQuest.tasks) return "";
+      var idx = -1;
+      for (var i = 0; i < currentQuest.tasks.length; i++) {
+        if (currentQuest.tasks[i].id === currentTaskId) { idx = i; break; }
+      }
+      if (idx < 0) return "";
+      if (idx >= currentQuest.tasks.length - 1) {
+        return "Это последнее задание! Квест пройден 🎉";
+      }
+      var next = currentQuest.tasks[idx + 1];
+      return "Теперь иди к следующей точке: «" + next.title + "» (смотри на карте)";
+    }
+
+    function centerMapOnNextTask(currentTaskId) {
+      if (!map || !currentQuest) return;
+      var idx = -1;
+      for (var i = 0; i < currentQuest.tasks.length; i++) {
+        if (currentQuest.tasks[i].id === currentTaskId) { idx = i; break; }
+      }
+      if (idx < 0 || idx >= currentQuest.tasks.length - 1) return;
+      var next = currentQuest.tasks[idx + 1];
+      map.setView([next.lat, next.lng], 17);
+      if (markers && markers[idx + 1]) {
+        markers[idx + 1].openPopup();
+      }
+    }
+
+
+    
+    function countPlayerWrongs(player) {
+      if (!player || !player.wrongAttempts) return 0;
+      var n = 0;
+      for (var k in player.wrongAttempts) {
+        if (player.wrongAttempts.hasOwnProperty(k)) n += player.wrongAttempts[k];
+      }
+      return n;
+    }
+
+    function formatElapsed(startedAt) {
+      if (!startedAt) return "—";
+      var ms = Math.max(0, Date.now() - new Date(startedAt).getTime());
+      var m = Math.floor(ms / 60000);
+      var s = Math.floor((ms % 60000) / 1000);
+      return m + " мин " + s + " сек";
+    }
+
+    
+    function syncProgressToServer() {
+      if (!apiEnabled() || !currentLobby || !user) return;
+      var me = null;
+      for (var i = 0; i < currentLobby.players.length; i++) {
+        if (currentLobby.players[i].id === user.id) { me = currentLobby.players[i]; break; }
+      }
+      if (!me) return;
+      api("/api/lobbies/" + currentLobby.id + "/progress", "POST", {
+        userId: user.id,
+        score: me.score || 0,
+        completedTasks: me.completedTasks || [],
+        wrongAttempts: me.wrongAttempts || {}
+      }).then(function(lobby) {
+        currentLobby = lobby;
+      }).catch(function(e) { console.log("sync", e); });
+    }
+
+    function showResults() {
+      if (!currentLobby || !currentQuest) return;
+      var me = null;
+      for (var i = 0; i < currentLobby.players.length; i++) {
+        if (currentLobby.players[i].id === user.id) { me = currentLobby.players[i]; break; }
+      }
+      var done = me ? me.completedTasks.length : 0;
+      var total = currentQuest.tasks.length;
+      var allDone = done >= total;
+
+      document.getElementById("results-title").textContent = allDone ? "Квест пройден!" : "Квест завершён";
+      document.getElementById("results-subtitle").textContent = currentQuest.title;
+      document.getElementById("results-score").textContent = me ? me.score : 0;
+      document.getElementById("results-tasks").textContent = done + " / " + total;
+      document.getElementById("results-time").textContent = formatElapsed(currentLobby.startedAt);
+      document.getElementById("results-wrongs").textContent = countPlayerWrongs(me);
+
+      var sorted = currentLobby.players.slice().sort(function(a, b) { return b.score - a.score; });
+      var rankHtml = "";
+      for (var r = 0; r < sorted.length; r++) {
+        var medal = r === 0 ? "🥇 " : (r === 1 ? "🥈 " : (r === 2 ? "🥉 " : (r + 1) + ". "));
+        rankHtml += "<li><span>" + medal + sorted[r].username + "</span><span class=\"badge\">" + sorted[r].score + " очков</span></li>";
+      }
+      document.getElementById("results-ranking").innerHTML = rankHtml;
+
+      // mark lobby finished
+      if (apiEnabled()) {
+        api("/api/lobbies/" + currentLobby.id + "/finish", "POST", {})
+          .then(function(lobby) { currentLobby = lobby; })
+          .catch(function(e) { console.log(e); });
+      } else {
+        var lobbies = DB.getLobbies();
+        for (var li = 0; li < lobbies.length; li++) {
+          if (lobbies[li].id === currentLobby.id) {
+            lobbies[li].status = "finished";
+            currentLobby = lobbies[li];
+            break;
+          }
+        }
+        DB.saveLobbies(lobbies);
+      }
+
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      showScreen("results-screen");
+    }
+
+    function updateFinishButton() {
+      var btn = document.getElementById("btn-finish-quest");
+      if (!btn || !currentLobby || !currentQuest) return;
+      var me = null;
+      for (var i = 0; i < currentLobby.players.length; i++) {
+        if (currentLobby.players[i].id === user.id) { me = currentLobby.players[i]; break; }
+      }
+      var done = me ? me.completedTasks.length : 0;
+      var total = currentQuest.tasks.length;
+      if (done >= total && total > 0) {
+        btn.style.display = "block";
+        btn.textContent = "🏁 Завершить и посмотреть результат";
+      } else {
+        btn.style.display = "none";
+      }
+    }
+
+
+    
+    
+    function renderDevFromServer(list) {
+      var stats = document.getElementById("dev-stats");
+      if (stats) {
+        stats.innerHTML = "<h3 style=\"margin-bottom:10px;\">Сводка (сервер)</h3>" +
+          "<p>Команд / лобби: <strong>" + list.length + "</strong></p>" +
+          "<p style=\"color:var(--muted);font-size:0.85rem;\">Данные с API: " + API_URL + "</p>";
+      }
+      var container = document.getElementById("dev-lobbies-list");
+      if (!container) return;
+      if (!list.length) {
+        container.innerHTML = "<div class=\"empty\">Пока нет результатов на сервере</div>";
+        return;
+      }
+      var html = "";
+      for (var i = 0; i < list.length; i++) {
+        var L = list[i];
+        var statusLabel = L.status === "finished" ? "✅ Завершено" : (L.status === "playing" ? "🎮 Идёт" : "⏳ Ожидание");
+        html += "<div class=\"card\">";
+        html += "<div style=\"display:flex;justify-content:space-between;margin-bottom:8px;\">";
+        html += "<h3 style=\"margin:0;\">" + (L.questTitle || "Квест") + "</h3>";
+        html += "<span class=\"badge\">" + statusLabel + "</span></div>";
+        html += "<p>Код: <strong>" + L.code + "</strong> · Хост: " + (L.host || "—") + " · Сумма: <strong>" + (L.teamScore || 0) + "</strong></p>";
+        html += "<ul class=\"player-list\">";
+        var players = L.players || [];
+        for (var p = 0; p < players.length; p++) {
+          var pl = players[p];
+          var medal = p === 0 ? "🥇 " : (p === 1 ? "🥈 " : (p === 2 ? "🥉 " : (p+1)+". "));
+          html += "<li><span>" + medal + pl.username + "</span><span class=\"badge\">" + pl.score + " очк. · " + pl.completedTasks + " зад. · " + pl.wrongs + " ош.</span></li>";
+        }
+        html += "</ul></div>";
+      }
+      container.innerHTML = html;
+    }
+
+    function loadDevPanel() {
+      if (apiEnabled()) {
+        api("/api/results").then(function(list) {
+          renderDevFromServer(list);
+        }).catch(function(e) {
+          var stats = document.getElementById("dev-stats");
+          if (stats) stats.innerHTML = "<p style=\"color:#fda4af;\">Ошибка API: " + e.message + "</p>";
+        });
+        return;
+      }
+      var lobbies = DB.getLobbies();
+      var users = DB.getUsers();
+      var binds = {};
+      try { binds = DB.getQrBinds() || {}; } catch(e) {}
+
+      var finished = 0, playing = 0, waiting = 0;
+      for (var i = 0; i < lobbies.length; i++) {
+        if (lobbies[i].status === "finished") finished++;
+        else if (lobbies[i].status === "playing") playing++;
+        else waiting++;
+      }
+
+      var stats = document.getElementById("dev-stats");
+      if (stats) {
+        stats.innerHTML = "<h3 style=\"margin-bottom:10px;\">Сводка</h3>" +
+          "<p>Пользователей: <strong>" + users.length + "</strong></p>" +
+          "<p>Лобби всего: <strong>" + lobbies.length + "</strong> (ожидание: " + waiting + ", игра: " + playing + ", завершено: " + finished + ")</p>" +
+          "<p>Привязок QR: <strong>" + Object.keys(binds).filter(function(k){return k.indexOf("_fp")===-1;}).length + "</strong></p>";
+      }
+
+      var list = document.getElementById("dev-lobbies-list");
+      if (!list) return;
+      if (!lobbies.length) {
+        list.innerHTML = "<div class=\"empty\">Пока нет лобби</div>";
+        return;
+      }
+
+      // Sort: finished first, then by date
+      var sorted = lobbies.slice().sort(function(a, b) {
+        var ta = a.startedAt || a.createdAt || "";
+        var tb = b.startedAt || b.createdAt || "";
+        return tb.localeCompare(ta);
+      });
+
+      var html = "";
+      for (var i = 0; i < sorted.length; i++) {
+        var L = sorted[i];
+        var statusLabel = L.status === "finished" ? "✅ Завершено" : (L.status === "playing" ? "🎮 Идёт" : "⏳ Ожидание");
+        var statusColor = L.status === "finished" ? "#6ee7b7" : (L.status === "playing" ? "#93c5fd" : "#94a3b8");
+        html += "<div class=\"card\">";
+        html += "<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;\">";
+        html += "<h3 style=\"margin:0;\">" + (L.questTitle || "Квест") + "</h3>";
+        html += "<span class=\"badge\" style=\"color:" + statusColor + ";\">" + statusLabel + "</span>";
+        html += "</div>";
+        html += "<p>Код лобби: <strong>" + L.code + "</strong> · Хост: " + (L.host || "—") + "</p>";
+        if (L.startedAt) {
+          html += "<p style=\"margin-top:4px;\">Старт: " + new Date(L.startedAt).toLocaleString() + "</p>";
+        }
+        html += "<div style=\"margin-top:12px;border-top:1px solid var(--border);padding-top:10px;\">";
+        html += "<strong style=\"font-size:0.85rem;color:var(--muted);\">Команда / игроки</strong>";
+        var players = (L.players || []).slice().sort(function(a,b){ return (b.score||0)-(a.score||0); });
+        if (!players.length) {
+          html += "<p style=\"color:var(--muted);margin-top:6px;\">Нет игроков</p>";
+        } else {
+          html += "<ul class=\"player-list\">";
+          for (var p = 0; p < players.length; p++) {
+            var pl = players[p];
+            var medal = p === 0 ? "🥇 " : (p === 1 ? "🥈 " : (p === 2 ? "🥉 " : (p+1)+". "));
+            var done = (pl.completedTasks && pl.completedTasks.length) || 0;
+            var wrongs = 0;
+            if (pl.wrongAttempts) {
+              for (var wk in pl.wrongAttempts) {
+                if (pl.wrongAttempts.hasOwnProperty(wk)) wrongs += pl.wrongAttempts[wk];
+              }
+            }
+            html += "<li><span>" + medal + pl.username + "</span>";
+            html += "<span class=\"badge\">" + (pl.score||0) + " очк. · " + done + " зад. · " + wrongs + " ош.</span></li>";
+          }
+          html += "</ul>";
+        }
+        html += "</div></div>";
+      }
+      list.innerHTML = html;
+    }
+
+    function openDevPanel() {
+      if (!user || !isAdminUser(user)) {
+        alert("Доступ только для администратора");
+        return;
+      }
+      loadDevPanel();
+      showScreen("dev-screen");
+    }
+
+    // ===== INIT =====
+    
+    function fillSavedLoginForm() {
+      var saved = loadCredentials();
+      if (!saved) return;
+      var lu = document.getElementById("login-username");
+      var lp = document.getElementById("login-password");
+      if (lu && saved.username) lu.value = saved.username;
+      if (lp && saved.password) lp.value = saved.password;
+    }
+
+    
+    function updateAdminUI() {
+      var btn = document.getElementById("btn-open-dev");
+      if (!btn) return;
+      if (user && isAdminUser(user)) {
+        btn.style.display = "block";
+      } else {
+        btn.style.display = "none";
+      }
+    }
+
+    function initApp() {
+      document.getElementById("header-user").textContent = user.username;
+      document.getElementById("header-user2").textContent = user.username;
+      document.getElementById("profile-name").textContent = user.username;
+      updateAdminUI();
+      loadLobbies();
+      showScreen("lobby-list-screen");
+    }
+
+    fillSavedLoginForm();
+    if (user) {
+      initApp();
+    }
+
+    var openDev = document.getElementById("btn-open-dev");
+    if (openDev) openDev.onclick = function() { openDevPanel(); };
+    var devBack = document.getElementById("btn-dev-back");
+    if (devBack) devBack.onclick = function() {
+      if (user) showScreen("profile-screen");
+      else showScreen("auth-screen");
+    };
+    var devRefresh = document.getElementById("btn-dev-refresh");
+    if (devRefresh) devRefresh.onclick = function() { loadDevPanel(); };
+    var devClear = document.getElementById("btn-dev-clear");
+    if (devClear) devClear.onclick = function() {
+      if (confirm("Удалить всех пользователей, лобби и QR-привязки?")) {
+        localStorage.removeItem("uq_users");
+        localStorage.removeItem("uq_lobbies");
+        localStorage.removeItem("uq_qr_binds");
+        localStorage.removeItem("uq_session");
+        user = null;
+        currentLobby = null;
+        alert("Данные очищены");
+        showScreen("auth-screen");
+      }
+    };
+
+
+    var finBtn = document.getElementById("btn-finish-quest");
+    if (finBtn) finBtn.onclick = function() { showResults(); };
+    var resHome = document.getElementById("btn-results-home");
+    if (resHome) resHome.onclick = function() {
+      currentLobby = null;
+      loadLobbies();
+      showScreen("lobby-list-screen");
+    };
+    var resAgain = document.getElementById("btn-results-again");
+    if (resAgain) resAgain.onclick = function() {
+      showScreen("quest-screen");
+    };
+
+    bindQrButtons();
+</script>
+
+
+  
+
+</body>
+</html>
